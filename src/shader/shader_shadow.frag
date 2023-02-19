@@ -13,6 +13,8 @@ uniform bool useMirrorBRDF;         // true if mirror brdf should be used (defau
 //
 
 uniform sampler2D diffuseTextureSampler;
+uniform sampler2D normalTextureSampler;
+uniform sampler2D environmentTextureSampler;
 
 // TODO CS248 Part 3: Normal Mapping
 // TODO CS248 Part 4: Environment Mapping
@@ -80,8 +82,30 @@ vec3 Phong_BRDF(vec3 L, vec3 V, vec3 N, vec3 diffuse_color, vec3 specular_color,
     // TODO CS248 Part 2: Phong Reflectance
     // Implement diffuse and specular terms of the Phong
     // reflectance model here.
+    vec3 l = normalize(L);
+    vec3 v = normalize(V);
+    vec3 n = normalize(N);
 
-    return diffuse_color;
+    vec3 r = 2 * dot(l, n) * n - l; // reflected ray
+    r = normalize(r);
+    
+    // be careful to set the diffuse and specular components to zero if the dot product is negative
+    
+    vec3 diffuse_component;
+    if (dot(l, n) > 0) {
+        diffuse_component = diffuse_color * dot(l, n);
+    } else {
+        diffuse_component = vec3(0, 0, 0);
+    }
+
+    vec3 specular_component;
+    if (dot(r, v) > 0) {
+        specular_component = specular_color * pow(dot(r, v), specular_exponent);
+    } else {
+        specular_component = vec3(0, 0, 0);
+    }
+
+    return diffuse_component + specular_component;
 }
 
 //
@@ -107,7 +131,17 @@ vec3 SampleEnvironmentMap(vec3 D)
     // (3) How do you convert theta and phi to normalized texture
     //     coordinates in the domain [0,1]^2?
 
-    return vec3(.25, .25, .25);   
+    float theta = acos(D.y / length(D)); // 0 - PI
+    float phi = atan(D.x, D.z); // -PI - PI
+    float u;
+    if (phi < 0) {
+        u = (phi + 2 * PI) / (2 * PI);
+    } else {
+        u = phi / (2 * PI);
+    }
+    float v = theta / PI;
+    vec3 color = texture(environmentTextureSampler, vec2(u, v)).rgb;
+    return color;  
 }
 
 //
@@ -144,8 +178,9 @@ void main(void)
        // In other words:   tangent_space_normal = texture_value * 2.0 - 1.0;
 
        // replace this line with your implementation
-       N = normalize(normal);
-
+       vec3 texture_value = texture(normalTextureSampler, texcoord).rgb;
+       vec3 tangent_space_normal = texture_value * 2.0 - 1.0;
+       N = normalize(tan2world * tangent_space_normal);
     } else {
        N = normalize(normal);
     }
@@ -163,7 +198,8 @@ void main(void)
         // compute perfect mirror reflection direction here.
         // You'll also need to implement environment map sampling in SampleEnvironmentMap()
         //
-        vec3 R = normalize(vec3(1.0));
+        vec3 R = 2 * dot(V, N) * N - V; // reflected ray
+        R = normalize(R);
 
 
         // sample environment map
@@ -231,8 +267,15 @@ void main(void)
         //    -- The reference solution uses SMOOTHING = 0.1, so 20% of the spotlight region is the smoothly
         //       facing out area.  Smaller values of SMOOTHING will create hard spotlights.
 
-        // CS248: remove this once you perform proper attenuation computations
-        intensity = vec3(0.5, 0.5, 0.5);
+        float SMOOTHING = 0.1;
+        float distance = length(dir_to_surface);
+        intensity = intensity * (1 / (1 + distance * distance));
+        if(angle > (1.0 + SMOOTHING) * cone_angle)
+            intensity = vec3(0, 0, 0);
+        else if(angle < (1.0 - SMOOTHING) * cone_angle)
+            intensity = intensity;
+        else
+            intensity = intensity * (1 - (angle - (1 - SMOOTHING) * cone_angle) / (2 * SMOOTHING * cone_angle));
 
 
         // Render Shadows for all spot lights
