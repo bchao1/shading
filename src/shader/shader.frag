@@ -14,6 +14,7 @@ uniform bool useMirrorBRDF;         // true if mirror brdf should be used (defau
 
 uniform sampler2D diffuseTextureSampler;
 uniform sampler2D normalTextureSampler;
+uniform sampler2D environmentTextureSampler;
 
 // TODO CS248 Part 3: Normal Mapping
 // TODO CS248 Part 4: Environment Mapping
@@ -124,8 +125,17 @@ vec3 SampleEnvironmentMap(vec3 D)
     //
     // (3) How do you convert theta and phi to normalized texture
     //     coordinates in the domain [0,1]^2?
-
-    return vec3(.25, .25, .25);    
+    float theta = acos(D.y / length(D)); // 0 - PI
+    float phi = atan(D.x, D.z); // -PI - PI
+    float u;
+    if (phi < 0) {
+        u = (phi + 2 * PI) / (2 * PI);
+    } else {
+        u = phi / (2 * PI);
+    }
+    float v = theta / PI;
+    vec3 color = texture(environmentTextureSampler, vec2(u, v)).rgb;
+    return color;
 }
 
 //
@@ -148,7 +158,7 @@ void main(void)
     }
 
 
-
+    //useNormalMapping = False;
     // perform normal map lookup if required
     vec3 N = vec3(0);
     if (useNormalMapping) {
@@ -164,7 +174,6 @@ void main(void)
        vec3 texture_value = texture(normalTextureSampler, texcoord).rgb;
        vec3 tangent_space_normal = texture_value * 2.0 - 1.0;
        N = normalize(tan2world * tangent_space_normal);
-
     } else {
        N = normalize(normal);
     }
@@ -182,7 +191,8 @@ void main(void)
         // compute perfect mirror reflection direction here.
         // You'll also need to implement environment map sampling in SampleEnvironmentMap()
         //
-        vec3 R = normalize(vec3(1.0));
+        vec3 R = 2 * dot(V, N) * N - V; // reflected ray
+        R = normalize(R);
         //
 
         // sample environment map

@@ -30,8 +30,8 @@ void main(void)
     
     vec3 vtx_binormal = cross(normalize(vtx_normal), normalize(vtx_tangent)); // y axis
     mat3 tan2object = mat3(normalize(vtx_tangent), normalize(vtx_binormal), normalize(vtx_normal));
-    tan2world = tan2object * obj2worldNorm;
-    
+    tan2world = obj2worldNorm * tan2object;
+
     // Tips:
     //
     // (1) Make sure you normalize all columns of the matrix so that it is a rotation matrix.
