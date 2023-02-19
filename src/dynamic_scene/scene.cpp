@@ -46,9 +46,24 @@ Matrix4x4 createWorldToCameraMatrix(const Vector3D& eye, const Vector3D& at, con
 
   // TODO CS248 Part 1: Coordinate transform
   // Compute the matrix that transforms a point in world space to a point in camera space.
+  
+  auto n = (eye - at);
+  n.normalize();
+  auto u = cross(up, n);
+  u.normalize();
+  auto v = cross(n, u);
+  v.normalize();
 
-  return Matrix4x4::translation(Vector3D(-20,0,-150));
+  auto tx = -dot(u, eye);
+  auto ty = -dot(v, eye);
+  auto tz = -dot(n, eye);
 
+  Matrix4x4 m; // remember m is column major
+  m[0][0] = u.x; m[1][0] = u.y; m[2][0] = u.z; m[3][0] = tx;
+  m[0][1] = v.x; m[1][1] = v.y; m[2][1] = v.z; m[3][1] = ty;
+  m[0][2] = n.x; m[1][2] = n.y; m[2][2] = n.z; m[3][2] = tz;
+  m[0][3] = 0; m[1][3] = 0; m[2][3] = 0; m[3][3] = 1;
+  return m;
 }
 
 // Creates two triangles (6 positions, 18 floats) making up a square
