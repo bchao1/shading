@@ -281,8 +281,20 @@ void Scene::renderShadowPass(int shadowedLightIndex) {
     //       drawTriangles();  //  <- Framebuffer 100 is bound, since fb_bind is still alive here.
     // 
     // Replaces the following lines with correct implementation.
-    Matrix4x4 worldToLightNDC = Matrix4x4::identity();
-    worldToShadowLight_[shadowedLightIndex].zero();
+
+	auto fb_bind = gl_mgr_->bindFrameBuffer(shadowFrameBufferId_[shadowedLightIndex]);
+
+	Matrix4x4 worldToLight = createWorldToCameraMatrix(lightPos, lightPos + lightDir, Vector3D(0, 1, 0));
+	Matrix4x4 proj = createPerspectiveMatrix(fovy, aspect, near, far);
+	Matrix4x4 worldToLightNDC = proj * worldToLight;
+
+	Matrix4x4 normalizeToCube; // remember in column major
+	normalizeToCube[0] = Vector4D(0.5, 0, 0, 0);
+	normalizeToCube[1] = Vector4D(0, 0.5, 0, 0);
+	normalizeToCube[2] = Vector4D(0, 0, 0.5, 0);
+	normalizeToCube[3] = Vector4D(0.5, 0.5, 0.5, 1);
+	worldToShadowLight_[shadowedLightIndex] = normalizeToCube * worldToLightNDC;
+    // 
 
     glViewport(0, 0, shadowTextureSize_, shadowTextureSize_);
 

@@ -292,6 +292,7 @@ int ColladaParser::load(const char* filename, SceneInfo* sceneInfo) {
 			LightInfo* light = new LightInfo();
 			if (light_json_object.find(L"id") != light_json_object.end() && light_json_object[L"id"]->IsString()) {
 				light->id = wstring_to_string(light_json_object[L"id"]->AsString());
+        cout << "Light id: " << light->id << endl;
 			}
 			if (light_json_object.find(L"name") != light_json_object.end() && light_json_object[L"name"]->IsString()) {
 				light->name = wstring_to_string(light_json_object[L"name"]->AsString());

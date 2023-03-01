@@ -15,6 +15,7 @@ uniform bool useMirrorBRDF;         // true if mirror brdf should be used (defau
 uniform sampler2D diffuseTextureSampler;
 uniform sampler2D normalTextureSampler;
 uniform sampler2D environmentTextureSampler;
+uniform sampler2DArray shadowTextureArraySampler;
 
 // TODO CS248 Part 3: Normal Mapping
 // TODO CS248 Part 4: Environment Mapping
@@ -25,6 +26,7 @@ uniform sampler2D environmentTextureSampler;
 //
 
 #define MAX_NUM_LIGHTS 10
+ 
 uniform int  num_directional_lights;
 uniform vec3 directional_light_vectors[MAX_NUM_LIGHTS];
 
@@ -36,7 +38,6 @@ uniform vec3  spot_light_positions[MAX_NUM_LIGHTS];
 uniform vec3  spot_light_directions[MAX_NUM_LIGHTS];
 uniform vec3  spot_light_intensities[MAX_NUM_LIGHTS];
 uniform float spot_light_angles[MAX_NUM_LIGHTS];
-
 
 //
 // material-specific uniforms
@@ -53,6 +54,7 @@ in vec2 texcoord;     // surface texcoord (uv)
 in vec3 dir2camera;   // vector from surface point to camera
 in mat3 tan2world;    // tangent space to world space transform
 in vec3 vertex_diffuse_color; // surface color
+in vec4 shadow_pos[9];   // shadow map position (5.2)
 
 out vec4 fragColor;
 
@@ -134,11 +136,7 @@ vec3 SampleEnvironmentMap(vec3 D)
     float theta = acos(D.y / length(D)); // 0 - PI
     float phi = atan(D.x, D.z); // -PI - PI
     float u;
-    if (phi < 0) {
-        u = (phi + 2 * PI) / (2 * PI);
-    } else {
-        u = phi / (2 * PI);
-    }
+    u = (2 * PI - phi) / (2 * PI); // tricky! See README note.
     float v = theta / PI;
     vec3 color = texture(environmentTextureSampler, vec2(u, v)).rgb;
     return color;  
@@ -280,6 +278,24 @@ void main(void)
 
         // Render Shadows for all spot lights
         // TODO CS248 Part 5.2: Shadow Mapping: comute shadowing for spotlight i here 
+        float shadow_factor = 0.0;
+        float pcf_step_size = 256;
+        for (int j = -2; j <= 2; j++) {
+            for (int k = -2; k <= 2; k++) {
+                vec2 offset = vec2(j,k) / pcf_step_size;
+                // sample shadow map at shadow_uv + offset
+                // and test if the surface is in shadow according to this sample
+                vec2 shadow_uv = shadow_pos[i].xy / shadow_pos[i].w + offset;
+                float depth = texture(shadowTextureArraySampler, vec3(shadow_uv, i)).x; // why x?
+                float current_depth = shadow_pos[i].z / shadow_pos[i].w;
+                if(current_depth > depth + 0.005) {
+                    shadow_factor += 1.0;
+                }
+                    //intensity = vec3(0, 0, 0);
+            }
+        }
+        shadow_factor /= 25.0;
+        intensity *= (1 - shadow_factor);
 
 
 	    vec3 L = normalize(-spot_light_directions[i]);

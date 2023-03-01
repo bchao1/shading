@@ -128,11 +128,7 @@ vec3 SampleEnvironmentMap(vec3 D)
     float theta = acos(D.y / length(D)); // 0 - PI
     float phi = atan(D.x, D.z); // -PI - PI
     float u;
-    if (phi < 0) {
-        u = (phi + 2 * PI) / (2 * PI);
-    } else {
-        u = phi / (2 * PI);
-    }
+    u = (2 * PI - phi) / (2 * PI); // tricky! See README note.
     float v = theta / PI;
     vec3 color = texture(environmentTextureSampler, vec2(u, v)).rgb;
     return color;
