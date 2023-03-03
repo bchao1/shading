@@ -7,6 +7,7 @@ uniform bool useTextureMapping;     // true if basic texture mapping (diffuse) s
 uniform bool useNormalMapping;      // true if normal mapping should be used
 uniform bool useEnvironmentMapping; // true if environment mapping should be used
 uniform bool useMirrorBRDF;         // true if mirror brdf should be used (default: phong)
+uniform bool useSubsurfaceScattering; // true if subsurface scattering should be used
 
 //
 // texture maps
@@ -52,6 +53,81 @@ out vec4 fragColor;
 #define PI 3.14159265358979323846
 
 
+// Spherical Gaussian Utils
+struct SG {
+    // Spherical Gaussian
+    vec3 Amplitude;
+    vec3 Axis;
+    float Sharpness;
+};
+
+vec3 EvaluateSG(SG sg, vec3 direction) {
+    float cosAngle = dot(direction, sg.Axis);
+    vec3 result = sg.Amplitude * exp(sg.Sharpness * (cosAngle - 1.0));
+    return result;
+}
+
+vec3 SGIntegral(SG sg) {
+    // Integrate the SG over a sphere
+    float expTerm = 1.0 - exp(-2.0 * sg.Sharpness);
+    return 2 * PI * (sg.Amplitude / sg.Sharpness) * expTerm;
+}
+
+SG MakeNormalizedSG(vec3 axis, float sharpness) {
+    // Make a SG with unit integral
+    SG sg;
+    sg.Amplitude = vec3(1.0, 1.0, 1.0);
+    sg.Axis = normalize(axis);
+    sg.Sharpness = sharpness;
+    vec3 integral = SGIntegral(sg);
+
+    sg.Amplitude = sg.Amplitude / integral;
+    return sg;
+}
+
+vec3 SGIrradianceFitted(SG sg, vec3 normal) {
+    float cosAngle = dot(normal, sg.Axis);
+    float lambda = sg.Sharpness;
+
+    float c0 = 0.36;
+    float c1 = 1.0 / (4.0 * c0);
+
+    float eml = exp(-lambda);
+    float eml2 = eml * eml;
+    float rl = 1.0 / lambda; // rcp (lambda)
+
+    float scale = 1.0 + 2.0 * eml2 - rl;
+    float bias = (eml - eml2) * rl - eml2;
+
+    float x = sqrt(1.0 - scale);
+    float x0 = c0 * cosAngle;
+    float x1 = c1 * x;
+
+    float n = x0 + x1; 
+
+    float y = clamp(cosAngle, 0.0, 1.0);
+    if(abs(x0) <= x1) {
+        y = n * n / x;
+    }
+    float result = scale * y + bias;
+    return result * SGIntegral(sg);
+}
+
+vec3 Diffuse_SG(vec3 L, vec3 N, vec3 Scatter, vec3 diffuse_color) {
+    // Evaluate the diffuse term of the SG
+    SG redKernel = MakeNormalizedSG(L, 1.0 / max(Scatter.x, 0.0001));
+    SG greenKernel = MakeNormalizedSG(L, 1.0 / max(Scatter.y, 0.0001));
+    SG blueKernel = MakeNormalizedSG(L, 1.0 / max(Scatter.z, 0.0001));
+
+    float diffuseRed = SGIrradianceFitted(redKernel, N).x;
+    float diffuseGreen = SGIrradianceFitted(greenKernel, N).x;
+    float diffuseBlue = SGIrradianceFitted(blueKernel, N).x;
+    vec3 diffuse = vec3(diffuseRed, diffuseGreen, diffuseBlue); // no inverse PI?
+    vec3 diffuse_component = diffuse * diffuse_color;
+
+    return diffuse_component;
+}
+
 //
 // Simple diffuse brdf
 //
@@ -75,31 +151,39 @@ vec3 Phong_BRDF(vec3 L, vec3 V, vec3 N, vec3 diffuse_color, vec3 specular_color,
     // TODO CS248 Part 2: Phong Reflectance
     // Implement diffuse and specular terms of the Phong
     // reflectance model here.
-
-    vec3 l = normalize(L);
-    vec3 v = normalize(V);
-    vec3 n = normalize(N);
-
-    vec3 r = 2 * dot(l, n) * n - l; // reflected ray
-    r = normalize(r);
     
-    // be careful to set the diffuse and specular components to zero if the dot product is negative
+    if(useSubsurfaceScattering) {
+        vec3 l = normalize(L);
+        vec3 v = normalize(V);
+        vec3 n = normalize(N);
 
-    float wrap = 0.0;
-    vec3 diffuse_component;
-    // normal diffuse
-    diffuse_component = diffuse_color * max(dot(l, n), 0);
-    // wrap diffuse
-    //diffuse_component = diffuse_color * max((dot(l, n) + wrap) / (1 + wrap), 0);
-
-    vec3 specular_component;
-    if (dot(r, v) > 0) {
-        specular_component = specular_color * pow(dot(r, v), specular_exponent);
-    } else {
-        specular_component = vec3(0, 0, 0);
+        vec3 Scatter = vec3(0.2, 0.2, 0.2);
+        return Diffuse_SG(l, n, Scatter, diffuse_color);
     }
+    else {
+        vec3 l = normalize(L);
+        vec3 v = normalize(V);
+        vec3 n = normalize(N);
 
-    return diffuse_component + specular_component;
+        vec3 r = 2 * dot(l, n) * n - l; // reflected ray
+        r = normalize(r);
+        
+        // be careful to set the diffuse and specular components to zero if the dot product is negative
+
+        float wrap = 0.0;
+        vec3 diffuse_component;
+        // wrap diffuse
+        diffuse_component = diffuse_color * max((dot(l, n) + wrap) / (1 + wrap), 0);
+
+        vec3 specular_component;
+        if(dot(r, v) > 0) {
+            specular_component = specular_color * pow(dot(r, v), specular_exponent);
+        } else {
+            specular_component = vec3(0, 0, 0);
+        }
+
+        return diffuse_component + specular_component;
+    }
 }
 
 //

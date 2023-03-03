@@ -25,17 +25,17 @@
     "meshes" :
 	[
 		{
-			"filename" : "teapot.obj",
+			"filename" : "sphere.obj",
             "material" : "phong",
-			"diffuse_filename" : "../textures/jade.png",
-			"normal_filename" : "../textures/Blue_Marble_002_NORM.png",
-			"spec_exp" : 100.0,
+			"diffuse_filename" : "../textures/Quartz_001_COLOR.png",
+			"normal_filename" : "../textures/Quartz_001_NORM.png",
+			"spec_exp" : 20.0,
 			"texcoord_v_flip" : "true",
             "texcoord_u_scale" : 1,
             "texcoord_v_scale" : 1,
 			"vertex_shader_filename" : "../../src/shader/shader.vert",
 			"fragment_shader_filename" : "../../src/shader/shader.frag",
-			"do_subsurface_scattering": "true"
+			"use_subsurface_scattering": "true"
 		}
 	]
 }

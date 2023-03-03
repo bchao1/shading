@@ -73,6 +73,7 @@ class Mesh : public SceneObject {
     bool  doNormalMapping_;
     bool  doEnvironmentMapping_;
     bool  useMirrorBrdf_;
+    bool  useSubsurfaceScattering_;
     float phongSpecExponent_;
 
 };

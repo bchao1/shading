@@ -49,6 +49,7 @@ struct PolymeshInfo : Instance {
 
   bool  is_mirror_brdf;
   float phong_spec_exp;
+  bool use_subsurface_scattering;
 
   std::string vert_filename;  ///< vertex shader filename
   std::string frag_filename;  ///< fragment shader filename

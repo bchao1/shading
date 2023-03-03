@@ -26,6 +26,7 @@ Mesh::Mesh(Collada::PolymeshInfo& polyMesh, const Matrix4x4& transform) {
 	doEnvironmentMapping_ = false;
 	useMirrorBrdf_ = polyMesh.is_mirror_brdf;
 	phongSpecExponent_ = polyMesh.phong_spec_exp;
+	useSubsurfaceScattering_ = polyMesh.use_subsurface_scattering;
 
     //printf("Mesh details:\n");
     //printf("   num polys:     %lu\n", polyMesh.polygons.size());
@@ -334,6 +335,7 @@ void Mesh::internalDraw(bool shadowPass, const Matrix4x4& worldToNDC) const {
         shader_->setScalarParameter("useEnvironmentMapping", doEnvironmentMapping_ ? 1 : 0);
         shader_->setScalarParameter("useMirrorBRDF", useMirrorBrdf_ ? 1 : 0);
         shader_->setScalarParameter("spec_exp", phongSpecExponent_);
+		shader_->setScalarParameter("useSubsurfaceScattering", useSubsurfaceScattering_ ? 1 : 0);
 
 		checkGLError("after binding the scalars");
 

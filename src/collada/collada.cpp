@@ -657,6 +657,11 @@ int ColladaParser::load(const char* filename, SceneInfo* sceneInfo) {
                     }
                 }
             }
+      if (mesh_json_object.find(L"use_subsurface_scattering") != mesh_json_object.end() && mesh_json_object[L"use_subsurface_scattering"]->IsString()) {
+				if(L"true" == mesh_json_object[L"use_subsurface_scattering"]->AsString()) {
+                    polymesh->use_subsurface_scattering = true;
+                }
+            }
 			if (mesh_json_object.find(L"parameters") != mesh_json_object.end() && mesh_json_object[L"parameters"]->IsArray()) {
 				JSONArray parameters_json_array = mesh_json_object[L"parameters"]->AsArray();
 				for(int i = 0; i < parameters_json_array.size(); ++i) {
