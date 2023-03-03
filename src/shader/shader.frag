@@ -53,81 +53,6 @@ out vec4 fragColor;
 #define PI 3.14159265358979323846
 
 
-// Spherical Gaussian Utils
-struct SG {
-    // Spherical Gaussian
-    vec3 Amplitude;
-    vec3 Axis;
-    float Sharpness;
-};
-
-vec3 EvaluateSG(SG sg, vec3 direction) {
-    float cosAngle = dot(direction, sg.Axis);
-    vec3 result = sg.Amplitude * exp(sg.Sharpness * (cosAngle - 1.0));
-    return result;
-}
-
-vec3 SGIntegral(SG sg) {
-    // Integrate the SG over a sphere
-    float expTerm = 1.0 - exp(-2.0 * sg.Sharpness);
-    return 2 * PI * (sg.Amplitude / sg.Sharpness) * expTerm;
-}
-
-SG MakeNormalizedSG(vec3 axis, float sharpness) {
-    // Make a SG with unit integral
-    SG sg;
-    sg.Amplitude = vec3(1.0, 1.0, 1.0);
-    sg.Axis = normalize(axis);
-    sg.Sharpness = sharpness;
-    vec3 integral = SGIntegral(sg);
-
-    sg.Amplitude = sg.Amplitude / integral;
-    return sg;
-}
-
-vec3 SGIrradianceFitted(SG sg, vec3 normal) {
-    float cosAngle = dot(normal, sg.Axis);
-    float lambda = sg.Sharpness;
-
-    float c0 = 0.36;
-    float c1 = 1.0 / (4.0 * c0);
-
-    float eml = exp(-lambda);
-    float eml2 = eml * eml;
-    float rl = 1.0 / lambda; // rcp (lambda)
-
-    float scale = 1.0 + 2.0 * eml2 - rl;
-    float bias = (eml - eml2) * rl - eml2;
-
-    float x = sqrt(1.0 - scale);
-    float x0 = c0 * cosAngle;
-    float x1 = c1 * x;
-
-    float n = x0 + x1; 
-
-    float y = clamp(cosAngle, 0.0, 1.0);
-    if(abs(x0) <= x1) {
-        y = n * n / x;
-    }
-    float result = scale * y + bias;
-    return result * SGIntegral(sg);
-}
-
-vec3 Diffuse_SG(vec3 L, vec3 N, vec3 Scatter, vec3 diffuse_color) {
-    // Evaluate the diffuse term of the SG
-    SG redKernel = MakeNormalizedSG(L, 1.0 / max(Scatter.x, 0.0001));
-    SG greenKernel = MakeNormalizedSG(L, 1.0 / max(Scatter.y, 0.0001));
-    SG blueKernel = MakeNormalizedSG(L, 1.0 / max(Scatter.z, 0.0001));
-
-    float diffuseRed = SGIrradianceFitted(redKernel, N).x;
-    float diffuseGreen = SGIrradianceFitted(greenKernel, N).x;
-    float diffuseBlue = SGIrradianceFitted(blueKernel, N).x;
-    vec3 diffuse = vec3(diffuseRed, diffuseGreen, diffuseBlue); // no inverse PI?
-    vec3 diffuse_component = diffuse * diffuse_color;
-
-    return diffuse_component;
-}
-
 //
 // Simple diffuse brdf
 //
@@ -153,12 +78,7 @@ vec3 Phong_BRDF(vec3 L, vec3 V, vec3 N, vec3 diffuse_color, vec3 specular_color,
     // reflectance model here.
     
     if(useSubsurfaceScattering) {
-        vec3 l = normalize(L);
-        vec3 v = normalize(V);
-        vec3 n = normalize(N);
-
-        vec3 Scatter = vec3(0.2, 0.2, 0.2);
-        return Diffuse_SG(l, n, Scatter, diffuse_color);
+        return vec3(0, 0, 0)
     }
     else {
         vec3 l = normalize(L);
