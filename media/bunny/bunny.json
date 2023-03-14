@@ -1,4 +1,6 @@
 {
+	"base_shader_dir" : "../../src/shader",
+    
 	"camera" :
 	{
 		"id" : "Camera_001-camera",
@@ -25,17 +27,16 @@
     "meshes" :
 	[
 		{
-			"filename" : "sphere.obj",
+			"filename" : "bunny.obj",
             "material" : "phong",
 			"diffuse_filename" : "../textures/Quartz_001_COLOR.png",
 			"normal_filename" : "../textures/Quartz_001_NORM.png",
 			"spec_exp" : 20.0,
 			"texcoord_v_flip" : "true",
-            "texcoord_u_scale" : 1,
-            "texcoord_v_scale" : 1,
-			"vertex_shader_filename" : "../../src/shader/shader.vert",
-			"fragment_shader_filename" : "../../src/shader/shader.frag",
-			"use_subsurface_scattering": "true"
+            "texcoord_u_scale" : 4,
+            "texcoord_v_scale" : 4,
+			"vertex_shader_filename" : "../../src/shader/shader_shadow.vert",
+			"fragment_shader_filename" : "../../src/shader/shader_shadow.frag"
 		}
 	]
 }

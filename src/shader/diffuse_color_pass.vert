@@ -26,9 +26,7 @@ out vec3 dir2camera;                // world space vector from surface point to 
 out vec3 normal;
 out mat3 tan2world;                 // tangent space rotation matrix multiplied by obj2WorldNorm
 out vec4 shadow_pos[3]; // light space position (5.2)
-out vec4 NDC_pos;
-out vec3 obj_pos;
-out vec3 obj_normal;
+//out float depth;
 
 void main(void)
 {
@@ -47,7 +45,7 @@ void main(void)
     // to each shadowed light source.
     
     // tranform the position using each shadow matrix
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < num_spot_lights; i++) {
         shadow_pos[i] = shadow_matrices[i] * vec4(position, 1);
     }
 
@@ -73,8 +71,6 @@ void main(void)
     vertex_diffuse_color = vtx_diffuse_color;
     texcoord = vtx_texcoord;
     dir2camera = camera_position - position;
-    NDC_pos = (mvp * vec4(vtx_position, 1)); 
-    obj_pos = vtx_position;
-    obj_normal = vtx_normal;
     gl_Position = mvp * vec4(vtx_position, 1);
+    //depth = gl_Position.z;
 }

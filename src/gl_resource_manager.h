@@ -67,7 +67,10 @@ class GLResourceManager {
   // The first texture array contains the depth images for each of the frame buffers.
   // The second texture array contains the color images for each of the frame buffers.
   std::pair<TextureArrayId, TextureArrayId> createDepthAndColorTextureArrayFromFrameBuffers(const FrameBufferId* fbids, int num, int texture_size);
+  //std::pair<TextureId, TextureId> createDepthAndColorTextureFromFrameBuffer(FrameBufferId fbid, int texture_size);
 
+  TextureId createDepthTextureFromFrameBuffer(FrameBufferId fbid, int texture_size);
+  TextureId createColorTextureFromFrameBuffer(FrameBufferId fbid, int texture_size);
   // Attach shaders to the program and link the program.
   // Shaders need to have successfully compiled.
   // If link is successful, will return true.
@@ -114,11 +117,10 @@ class GLResourceManager {
  private:
   GLResourceManager() {}
   TextureId createTexture();
-  TextureId createDepthTextureFromFrameBuffer(FrameBufferId fbid, int texture_size);
-  TextureId createColorTextureFromFrameBuffer(FrameBufferId fbid, int texture_size);
   std::unique_ptr<Cleanup> bindTexture(TextureId texid);
   std::unique_ptr<Cleanup> bindTextureArray(TextureArrayId texaid);
   std::unique_ptr<Cleanup> bindVertexBuffer(VertexBufferId vbid);
+  
 };
 	
 }  // namespace CS248

@@ -31,13 +31,14 @@ class Mesh : public SceneObject {
 
     void draw(const Matrix4x4& worldToNDC) const override;
     void drawShadow(const Matrix4x4& worldToNDC) const override;
+    void drawDiffuseColor(const Matrix4x4& worldToNDC) const override;
     BBox getBBox() const override;
     void reloadShaders() override;
 
  private:
 
     // Helper called by draw() and drawShadow()
-    void internalDraw(bool shadowPass, const Matrix4x4& worldToNDC) const;
+    void internalDraw(int drawEnum, const Matrix4x4& worldToNDC) const;
       
     int numTriangles_;
 

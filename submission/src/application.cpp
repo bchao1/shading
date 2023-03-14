@@ -17,6 +17,7 @@
 #include <sstream>
 #include <chrono>
 #include <thread>
+#include <iostream>
 
 using namespace std;
 
@@ -117,6 +118,10 @@ void Application::render() {
             scene->renderShadowPass(i);
         }
     }
+
+    // pass 2, generate diffuseColor pass
+    scene->renderDiffuseColorPass();
+    cout << "rendered diffuse color pass" << endl;
 
     // pass 2, beauty pass, render the scene (using the shadow map)
 

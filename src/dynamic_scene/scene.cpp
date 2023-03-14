@@ -173,6 +173,8 @@ Scene::Scene(std::vector<SceneObject*> argObjects,
         shadowShader_ = new Shader(baseShaderDir + sepchar + "shadow_pass.vert",
                                   baseShaderDir + sepchar + "shadow_pass.frag");
         checkGLError("post shadow shader compile");
+        
+
         // checkGLError("post shadow shader debug compile");
         shadowVizShader_ = new Shader(baseShaderDir + sepchar + "shadow_viz.vert",
                                      baseShaderDir + sepchar + "shadow_viz.frag");
@@ -186,6 +188,26 @@ Scene::Scene(std::vector<SceneObject*> argObjects,
 
         printf("Shaders created.\n");
     }
+
+    // create shader object for diffuse color passes
+    string sepchar("/");
+    diffuseColorTextureSize_ = 1024;
+    gl_mgr_ = GLResourceManager::instance();
+    diffuseColorFrameBufferId_ = gl_mgr_->createFrameBuffer();
+    checkGLError("after creating diffuse color framebuffer");
+    diffuseDepthTextureId_ = gl_mgr_->createDepthTextureFromFrameBuffer(diffuseColorFrameBufferId_, diffuseColorTextureSize_);
+    checkGLError("after binding diffuse depth texture as attachment");
+    diffuseColorTextureId_ = gl_mgr_->createColorTextureFromFrameBuffer(diffuseColorFrameBufferId_, diffuseColorTextureSize_);
+    checkGLError("after binding diffuse color texture as attachment");
+    // sanity check
+    if (!gl_mgr_->checkFrameBuffer(diffuseColorFrameBufferId_)) {
+        exit(1);
+    }
+    checkGLError("post diffuse color framebuffer setup");
+
+    diffuseColorShader_ = new Shader(baseShaderDir + sepchar + "diffuse_color_pass.vert",
+                                    baseShaderDir + sepchar + "diffuse_color_pass.frag");
+    checkGLError("post diffuse color shader compile");
 
     checkGLError("returning from Scene::Scene");  
 }
@@ -240,6 +262,28 @@ void Scene::render() {
 
     checkGLError("end Scene::render");
 
+}
+
+void Scene::renderDiffuseColorPass() {
+    checkGLError("begin Scene::renderDiffuseColorPass");
+
+    auto fb_bind = gl_mgr_->bindFrameBuffer(diffuseColorFrameBufferId_);
+
+
+    Matrix4x4 worldToCamera = createWorldToCameraMatrix(camera_->getPosition(), camera_->getViewPoint(), camera_->getUpDir());
+    Matrix4x4 proj = createPerspectiveMatrix(camera_->getVFov(), camera_->getAspectRatio(), camera_->getNearClip(), camera_->getFarClip());  
+    Matrix4x4 worldToCameraNDC = proj * worldToCamera;
+
+    glViewport(0, 0, diffuseColorTextureSize_, diffuseColorTextureSize_);
+
+    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST);
+
+
+    for (SceneObject *obj : objects_)
+        obj->drawDiffuseColor(worldToCameraNDC);
+
+    checkGLError("end Scene::renderDiffuseColorPass");
 }
 
 void Scene::renderShadowPass(int shadowedLightIndex) {

@@ -273,9 +273,12 @@ TextureId GLResourceManager::createColorTextureFromFrameBuffer(FrameBufferId fbi
   {
     auto fb_bind = bindFrameBuffer(fbid);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texid.id, /*level=*/0);
+    
   }
   return texid; 
 }
+
+
 
 bool GLResourceManager::checkFrameBuffer(FrameBufferId fbid) {
   auto fb_bind = bindFrameBuffer(fbid);

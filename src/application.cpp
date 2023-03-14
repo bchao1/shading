@@ -118,6 +118,10 @@ void Application::render() {
         }
     }
 
+
+    // pass 2, diffuse color pass
+    scene->renderDiffuseColorPass();
+
     // pass 2, beauty pass, render the scene (using the shadow map)
 
     checkGLError("pre beauty pass");

@@ -285,17 +285,25 @@ Mesh::~Mesh() {
  * Draw the mesh
  */
 void Mesh::draw(const Matrix4x4& worldToNDC) const {
-	internalDraw(false, worldToNDC);
+	internalDraw(0, worldToNDC);
 }
 
 /*
  * Draw the mesh as part of a shadow map generation rendering pass
  */
 void Mesh::drawShadow(const Matrix4x4& worldToNDC) const {
-	internalDraw(true, worldToNDC);
+	internalDraw(1, worldToNDC);
 }
 
-void Mesh::internalDraw(bool shadowPass, const Matrix4x4& worldToNDC) const {
+/*
+ * Draw the mesh as part of a diffuse color pass
+ */
+
+void Mesh::drawDiffuseColor(const Matrix4x4& worldToNDC) const {
+	internalDraw(2, worldToNDC);
+}
+
+void Mesh::internalDraw(int drawEnum, const Matrix4x4& worldToNDC) const {
 
 	// printf("Top of Mesh::internalDraw  (%lu shadowed lights)\n", scene->getNumShadowedLights());
 
@@ -309,7 +317,12 @@ void Mesh::internalDraw(bool shadowPass, const Matrix4x4& worldToNDC) const {
 
 	auto vertex_array_bind = gl_mgr_->bindVertexArray(vertexArrayId_);
 
-    if (shadowPass) {
+	// drawEnum
+	// 0 = draw 
+	// 1 = draw shadow
+	// 2 = draw diffuse color pass
+
+    if (drawEnum == 1) {
 
     	Shader* shadowShader = scene_->getShadowShader();
 
@@ -322,7 +335,7 @@ void Mesh::internalDraw(bool shadowPass, const Matrix4x4& worldToNDC) const {
 		checkGLError("before glDrawArrays in shadow pass");
         glDrawArrays(GL_TRIANGLES, 0, 3 * numTriangles_);
 
-    } else {
+    } else if (drawEnum == 0) {
 
     	checkGLError("before use program");
 
@@ -357,12 +370,6 @@ void Mesh::internalDraw(bool shadowPass, const Matrix4x4& worldToNDC) const {
 
         int numShadowedLights = scene_->getNumShadowedLights();
 
-        // TODO CS248 Part 5.2: Shadow Mapping
-        // You need to pass an array of matrices to the shader.
-        // They should go from object space to the "light space" for each spot light.
-        // In this way, the shader can compute the texture coordinate to sample from the
-        // Shadow Map given any point on the object.
-        // For examples of passing arrays to the shader, look below for "directional_light_vectors[]" etc.
 		checkGLError("before bind shadow matrices");
 
         for (int j=0; j<scene_->getNumSpotLights(); j++) {
@@ -378,26 +385,19 @@ void Mesh::internalDraw(bool shadowPass, const Matrix4x4& worldToNDC) const {
         if (doTextureMapping_)
         	shader_->setTextureSampler("diffuseTextureSampler", diffuseTextureId_);
 
-        // TODO CS248 Part 3: Normal Mapping:
-        // You want to pass the normal texture into the shader program.
-        // See diffuseTextureSampler for an example of passing textures.
 		if (doNormalMapping_)
 			shader_->setTextureSampler("normalTextureSampler", normalTextureId_);
 
-        // TODO CS248 Part 4: Environment Mapping:
-        // You want to pass the environment texture into the shader program.
-        // See diffuseTextureSampler for an example of passing textures.
 		if(doEnvironmentMapping_)
 			shader_->setTextureSampler("environmentTextureSampler", environmentTextureId_);
-
-        // TODO CS248 Part 5.2: Shadow Mapping:
-        // You want to pass the array of shadow textures computed during shadow pass into the shader program.
-        // See Scene::visualizeShadowMap for an example of passing texture arrays.
-        // See shadow_viz.frag for an example of using texture arrays in the shader.
 
 		if(numShadowedLights > 0) {
 			shader_->setTextureArraySampler("shadowTextureArraySampler", scene_->getShadowTextureArrayId());
 		}
+
+		// set diffuse color sampler in the diffuse color pass
+		shader_->setTextureSampler("diffuseColorTextureSampler", scene_->getDiffuseColorTextureId());
+		shader_->setTextureSampler("diffuseDepthTextureSampler", scene_->getDiffuseDepthTextureId());
 
         // bind light parameters //////////////////////////////////
 
@@ -463,6 +463,133 @@ void Mesh::internalDraw(bool shadowPass, const Matrix4x4& worldToNDC) const {
 		// now issue the draw command to OpenGL
 		checkGLError("before glDrawArrays");
 		glDrawArrays(GL_TRIANGLES, 0, 3 * numTriangles_);
+
+	} else if (drawEnum == 2) {
+		// draw diffuse color pass
+		// write to diffuse color shader
+
+		Shader* diffuseColorShader = scene_->getDiffuseColorShader();
+		auto shader_bind = diffuseColorShader->bind();
+
+		checkGLError("before bind uniforms");
+
+    	diffuseColorShader->setScalarParameter("useTextureMapping", doTextureMapping_ ? 1 : 0);
+    	diffuseColorShader->setScalarParameter("useNormalMapping", doNormalMapping_ ? 1 : 0);        
+        diffuseColorShader->setScalarParameter("useEnvironmentMapping", doEnvironmentMapping_ ? 1 : 0);
+        diffuseColorShader->setScalarParameter("useMirrorBRDF", useMirrorBrdf_ ? 1 : 0);
+        diffuseColorShader->setScalarParameter("spec_exp", phongSpecExponent_);
+		diffuseColorShader->setScalarParameter("useSubsurfaceScattering", useSubsurfaceScattering_ ? 1 : 0);
+
+		checkGLError("after binding the scalars");
+
+        diffuseColorShader->setVectorParameter("camera_position", scene_->getCamera()->getPosition());
+
+		checkGLError("after binding camera position");
+
+        diffuseColorShader->setMatrixParameter("obj2world", objectToWorld);
+
+		checkGLError("after binding o2w");
+
+        diffuseColorShader->setMatrixParameter("obj2worldNorm", objectToWorldForNormals);
+
+		checkGLError("after binding everything but mvp");
+
+        diffuseColorShader->setMatrixParameter("mvp", mvp);
+
+		checkGLError("after binding mvp");
+
+        int numShadowedLights = scene_->getNumShadowedLights();
+
+		checkGLError("before bind shadow matrices");
+
+        for (int j=0; j<scene_->getNumSpotLights(); j++) {
+            string varname = "shadow_matrices[" + std::to_string(j) + "]";
+            const Matrix4x4 shadowMatrix = scene_->getWorldToShadowLight(j);
+            diffuseColorShader->setMatrixParameter(varname, shadowMatrix);
+        }
+
+		checkGLError("after bind uniforms, about to bind textures");
+
+        // bind texture samplers ///////////////////////////////////
+
+        if (doTextureMapping_)
+        	diffuseColorShader->setTextureSampler("diffuseTextureSampler", diffuseTextureId_);
+
+		if (doNormalMapping_)
+			diffuseColorShader->setTextureSampler("normalTextureSampler", normalTextureId_);
+
+		if(doEnvironmentMapping_)
+			diffuseColorShader->setTextureSampler("environmentTextureSampler", environmentTextureId_);
+
+		if(numShadowedLights > 0) {
+			diffuseColorShader->setTextureArraySampler("shadowTextureArraySampler", scene_->getShadowTextureArrayId());
+		}
+
+        // bind light parameters //////////////////////////////////
+
+    	diffuseColorShader->setScalarParameter("num_directional_lights", (int)scene_->getNumDirectionalLights());
+        diffuseColorShader->setScalarParameter("num_point_lights", (int)scene_->getNumPointLights());
+        diffuseColorShader->setScalarParameter("num_spot_lights", (int)scene_->getNumSpotLights());
+
+        for (int j=0; j<scene_->getNumDirectionalLights(); j++) {
+            string varname = "directional_light_vectors[" + std::to_string(j) + "]";
+            const StaticScene::DirectionalLight* light = scene_->getDirectionalLight(j);
+            diffuseColorShader->setVectorParameter(varname, light->lightDir);
+        }
+
+	    checkGLError("before bind point light attributes");
+
+        for (int j=0; j<scene_->getNumPointLights(); j++) {
+            string varname = "point_light_positions[" + std::to_string(j) + "]";
+            const StaticScene::PointLight* light = scene_->getPointLight(j);
+            diffuseColorShader->setVectorParameter(varname, light->position);
+        }
+
+	    checkGLError("before bind spotlight attributes");
+
+        for (int j=0; j<scene_->getNumSpotLights(); j++) {
+
+            const StaticScene::SpotLight* light = scene_->getSpotLight(j);
+            string varname = "spot_light_positions[" + std::to_string(j) + "]";
+            diffuseColorShader->setVectorParameter(varname, light->position);
+
+            varname = "spot_light_directions[" + std::to_string(j) + "]";
+            diffuseColorShader->setVectorParameter(varname, light->direction);
+
+            varname = "spot_light_angles[" + std::to_string(j) + "]";
+            diffuseColorShader->setScalarParameter(varname, light->angle);
+
+            varname = "spot_light_intensities[" + std::to_string(j) + "]";
+            Vector3D value(light->radiance.r, light->radiance.g, light->radiance.b);
+            diffuseColorShader->setVectorParameter(varname, value);
+        }
+
+        // bind per-vertex attribute buffers.  These are "in" parameters to the vertex shader
+
+	    checkGLError("before bind vertex attributes");
+
+	    diffuseColorShader->setVertexBuffer("vtx_position", 3, positionBufferId_);
+
+	   	checkGLError("before bind diffuse color");
+
+	    diffuseColorShader->setVertexBuffer("vtx_diffuse_color", 3, diffuseColorBufferId_);
+
+	   	checkGLError("before bind normal");
+
+	    diffuseColorShader->setVertexBuffer("vtx_normal", 3, normalBufferId_);
+
+	   	checkGLError("before bind texdtcoord");
+
+	    diffuseColorShader->setVertexBuffer("vtx_texcoord", 2, texcoordBufferId_);
+
+		checkGLError("before bind tangent");
+
+	    diffuseColorShader->setVertexBuffer("vtx_tangent", 3, tangentBufferId_);
+		
+		// now issue the draw command to OpenGL
+		checkGLError("before glDrawArrays");
+		glDrawArrays(GL_TRIANGLES, 0, 3 * numTriangles_);
+
 	}
 
 	checkGLError("end mesh::internalDraw");

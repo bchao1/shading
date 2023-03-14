@@ -48,6 +48,9 @@ class SceneObject {
     // same as above, but shadow pass form
     virtual void drawShadow(const Matrix4x4& worldToNDC) const = 0;
 
+    // same as above, but for drawing diffuse color
+    virtual void drawDiffuseColor(const Matrix4x4& worldToNDC) const = 0;
+
     // reload any shaders associated with object
     virtual void reloadShaders() = 0; 
 
@@ -140,6 +143,9 @@ class Scene {
 
     // renders a shadow pass
     void renderShadowPass(int shadowedLightIndex);
+    
+    // renders a diffuse color pass
+    void renderDiffuseColorPass();
 
     // visualization mode
     void visualizeShadowMap();
@@ -160,7 +166,12 @@ class Scene {
     BBox getBBox() const;
 
     Shader*   getShadowShader() const { return shadowShader_; }
+    Shader *  getDiffuseColorShader() const { return diffuseColorShader_; }
+
     TextureArrayId getShadowTextureArrayId() const { return shadowDepthTextureArrayId_; }
+    TextureId getDiffuseColorTextureId() const { return diffuseColorTextureId_; }
+    TextureId getDiffuseDepthTextureId() const { return diffuseDepthTextureId_; }
+
     Matrix4x4 getWorldToShadowLight(int lightid) const { return worldToShadowLight_[lightid]; }
 
     size_t getNumShadowedLights() const;
@@ -192,13 +203,20 @@ class Scene {
     GLResourceManager* gl_mgr_;
     // resources for shadow mapping
     bool            doShadowPass_;
-    int             shadowTextureSize_;
-    Shader*         shadowShader_;
+    int             shadowTextureSize_; // size of shadow texture
+    int             diffuseColorTextureSize_; // size of diffuse color texture
+    Shader*         shadowShader_; // for shadow pass
     Shader*         shadowVizShader_;
-    FrameBufferId   shadowFrameBufferId_[SCENE_MAX_SHADOWED_LIGHTS];
+    Shader*         diffuseColorShader_; // for diffuse color pass
+
+    FrameBufferId   shadowFrameBufferId_[SCENE_MAX_SHADOWED_LIGHTS]; // for shadow pass
+    FrameBufferId   diffuseColorFrameBufferId_; // for diffuse color pass
+
     Matrix4x4       worldToShadowLight_[SCENE_MAX_SHADOWED_LIGHTS];
     TextureArrayId  shadowDepthTextureArrayId_;
     TextureArrayId  shadowColorTextureArrayId_;
+    TextureId       diffuseColorTextureId_;
+    TextureId       diffuseDepthTextureId_;
     // OpenGL vertex array object
     VertexArrayId   shadowVizVertexArrayId_;
     // OpenGL vertex buffer objects
