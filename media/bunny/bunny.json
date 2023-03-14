@@ -1,5 +1,5 @@
 {
-	"base_shader_dir" : "../../src/shader",
+    "base_shader_dir" : "../../src/shader",
     
 	"camera" :
 	{
@@ -12,39 +12,52 @@
 		"aspect_ratio" : 1.777778,
 		"up_axis" : "Y_UP",
 		"target_position" : [0, 0, 0],
-		"dir2cam" : [0, 25, 180]
+		"dir2cam" : [13, 31, 162]
 	},
+    
     "lights" :
 	[
 		{
-			"id" : "Directional-light",
-			"name" : "Directional",
-			"type" : "directional",
-			"direction" : [-1, -1, -1]
-		},
-		{
-			"id" : "Directional-light",
-			"name" : "Directional",
-			"type" : "directional",
-			"direction" : [1, 1, -1]
+			"id" : "spotlight",
+		    "name" : "main_spotlight",
+			"type" : "spot",
+            "position" : [0, 100, 100],
+			"direction" : [0, -1, -1],
+            "falloff_deg" : 20.0,
+            "intensity" : [15000, 15000, 15000]
 		}
-	]
-	,
+	],
+    
     "meshes" :
 	[
-		{
-			"filename" : "bunny_2.obj",
+        {
+			"filename" : "../bunny/bunny_2.obj",
+            "translate" : [0, 10, 0],
+			"scale": [0.1, 0.1, 0.1],
             "material" : "phong",
-			"scale" : [0.1, 0.1, 0.1],
-			"diffuse_filename" : "../textures/Quartz_001_COLOR.png",
-			"normal_filename" : "../textures/Quartz_001_NORM.png",
-			"spec_exp" : 20.0,
+			"diffuse_filename" : "../textures/Red_Marble_001_COLOR.png",
+			"normal_filename" : "../textures/Red_Marble_001_NORM.png",
+			"spec_exp" : 10.0,
 			"texcoord_v_flip" : "true",
-            "texcoord_u_scale" : 1,
-            "texcoord_v_scale" : 1,
-			"vertex_shader_filename" : "../../src/shader/shader.vert",
-			"fragment_shader_filename" : "../../src/shader/shader.frag",
-			"use_subsurface_scattering": "true"
-		}
+            "texcoord_u_scale" : 2,
+            "texcoord_v_scale" : 2,
+			"vertex_shader_filename" : "../../src/shader/shader_shadow.vert",
+			"fragment_shader_filename" : "../../src/shader/shader_shadow.frag",
+			"use_subsurface_scattering" : "true"
+		},
+		{
+			"filename" : "../spheres/plane.obj",
+            "translate" : [0, -20, 0],
+            "material" : "phong",
+			"diffuse_filename" : "../textures/Stone_Tiles_003_COLOR.png",
+            "normal_filename" : "../textures/Stone_Tiles_003_NORM.png",
+            "spec_exp" : 20.0,
+			"texcoord_v_flip" : "true",
+            "texcoord_u_scale" : 4,
+            "texcoord_v_scale" : 4,
+			"vertex_shader_filename" : "../../src/shader/shader_shadow.vert",
+			"fragment_shader_filename" : "../../src/shader/shader_shadow.frag",
+			"use_subsurface_scattering" : "false"
+		}   
 	]
 }
