@@ -21,22 +21,30 @@
 			"name" : "Directional",
 			"type" : "directional",
 			"direction" : [-1, -1, -1]
+		},
+		{
+			"id" : "Directional-light",
+			"name" : "Directional",
+			"type" : "directional",
+			"direction" : [1, 1, -1]
 		}
 	]
 	,
     "meshes" :
 	[
 		{
-			"filename" : "bunny.obj",
+			"filename" : "bunny_2.obj",
             "material" : "phong",
+			"scale" : [0.1, 0.1, 0.1],
 			"diffuse_filename" : "../textures/Quartz_001_COLOR.png",
 			"normal_filename" : "../textures/Quartz_001_NORM.png",
 			"spec_exp" : 20.0,
 			"texcoord_v_flip" : "true",
-            "texcoord_u_scale" : 4,
-            "texcoord_v_scale" : 4,
-			"vertex_shader_filename" : "../../src/shader/shader_shadow.vert",
-			"fragment_shader_filename" : "../../src/shader/shader_shadow.frag"
+            "texcoord_u_scale" : 1,
+            "texcoord_v_scale" : 1,
+			"vertex_shader_filename" : "../../src/shader/shader.vert",
+			"fragment_shader_filename" : "../../src/shader/shader.frag",
+			"use_subsurface_scattering": "true"
 		}
 	]
 }
