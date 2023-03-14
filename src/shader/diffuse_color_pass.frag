@@ -7,7 +7,7 @@ uniform bool useTextureMapping;     // true if basic texture mapping (diffuse) s
 uniform bool useNormalMapping;      // true if normal mapping should be used
 uniform bool useEnvironmentMapping; // true if environment mapping should be used
 uniform bool useMirrorBRDF;         // true if mirror brdf should be used (default: phong)
-//uniform bool useSubsurfaceScattering;
+uniform bool useSubsurfaceScattering;
 
 //
 // texture maps
@@ -300,6 +300,18 @@ void main(void)
 
 	    vec3 L = normalize(-spot_light_directions[i]);
 		vec3 brdf_color = Phong_BRDF(L, V, N, diffuseColor, specularColor, specularExponent);
+
+        if(useSubsurfaceScattering) {
+            float SSSDistortion = 0.5;
+            float SSSScale = 0.5;
+            float SSSPower = 1.0;
+            float thickness = 1.0;
+            vec3 SSSLightDir = L + N * SSSDistortion;
+            float SSSDot = pow(clamp(dot(-SSSLightDir, V), 0.0, 1.0), SSSPower) * SSSScale;
+            float SSSAmbient = 0.1;
+            vec3 translucentComponent = (SSSDot + SSSAmbient) * diffuseColor * thickness;
+            brdf_color = brdf_color + translucentComponent;
+        }
 
         //intensity = vec3(1.0);
 	    Lo += intensity * brdf_color;

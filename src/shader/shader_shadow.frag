@@ -411,13 +411,17 @@ void main(void)
 
     //vec3 L = normalize(-spot_light_directions[i]);
     //vec3 specular_component = Phong_BRDF_specular(L, V, N, specularColor, specularExponent);
+
+    // translucency
+
+
     
     vec3 scatterDistance = vec3(0.0002, 0.0002, 0.0002);
     vec3 scatterColor = diffusionSSS(uv, scatterDistance);
 
     if(useSubsurfaceScattering){
       fragColor = vec4(color, 1);
-      fragColor = vec4(Lo, 1);
+      //fragColor = vec4(Lo, 1);
       //fragColor = vec4(scatterColor, 1);
     }
     else {
