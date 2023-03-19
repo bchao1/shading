@@ -243,6 +243,8 @@ void Scene::reloadShaders() {
       shadowVizShader_->reload();
     }
 
+    diffuseColorShader_->reload();
+
     for (SceneObject *obj : objects_)
         obj->reloadShaders();
 
@@ -278,7 +280,7 @@ void Scene::renderDiffuseColorPass() {
 
     glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
-    //glEnable(GL_CULL_FACE); 
+    glEnable(GL_CULL_FACE);  // hack
 
 
     for (SceneObject *obj : objects_)

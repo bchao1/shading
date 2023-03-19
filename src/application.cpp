@@ -122,7 +122,7 @@ void Application::render() {
     // pass 2, diffuse color pass
     scene->renderDiffuseColorPass();
 
-    // pass 2, beauty pass, render the scene (using the shadow map)
+    // pass 3, beauty pass, render the scene (using the shadow map)
 
     checkGLError("pre beauty pass");
     
@@ -131,6 +131,7 @@ void Application::render() {
     glClearColor(0., 0., 0., 0.);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
+    glHint(GL_FRAGMENT_SHADER_DERIVATIVE_HINT, GL_NICEST);
 
 
     if (visualizeShadowMap && scene->needsShadowPass()) {

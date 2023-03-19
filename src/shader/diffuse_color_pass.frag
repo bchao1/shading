@@ -50,11 +50,11 @@ uniform float spec_exp;
 // values that are varying per fragment (computed by the vertex shader)
 
 in vec3 position;     // surface position
-in vec3 normal;
+in vec3 vertex_diffuse_color; // surface color
 in vec2 texcoord;     // surface texcoord (uv)
 in vec3 dir2camera;   // vector from surface point to camera
+in vec3 normal;
 in mat3 tan2world;    // tangent space to world space transform
-in vec3 vertex_diffuse_color; // surface color
 in vec4 shadow_pos[3];   // shadow map position (5.2)
 //in float depth;
 
@@ -95,17 +95,10 @@ vec3 Phong_BRDF(vec3 L, vec3 V, vec3 N, vec3 diffuse_color, vec3 specular_color,
     
     // be careful to set the diffuse and specular components to zero if the dot product is negative
     
-    float wrap = 0.5;
+    float wrap = 0.25;
     vec3 diffuse_component;
     // normal diffuse
-    diffuse_component = diffuse_color * max((dot(l, n) + wrap) / (1 + wrap), 0);
-
-    vec3 specular_component;
-    if (dot(r, v) > 0) {
-        specular_component = specular_color * pow(dot(r, v), specular_exponent);
-    } else {
-        specular_component = vec3(0, 0, 0);
-    }
+    diffuse_component = diffuse_color * max((dot(l, n) + wrap) / (1.0 + wrap), 0);
 
     return diffuse_component;// + specular_component;
 }
@@ -161,21 +154,13 @@ void main(void)
     } else {
         diffuseColor = vertex_diffuse_color;
     }
+    
+
+    //diffuseColor = vec3(1.0, 1.0, 1.0);
 
     // perform normal map lookup if required
     vec3 N = vec3(0);
     if (useNormalMapping) {
-       // TODO: CS248 Part 3: Normal Mapping:
-       // use tan2World in the normal map to compute the
-       // world space normal baaed on the normal map.
-
-       // Note that values from the texture should be scaled by 2 and biased
-       // by negative -1 to covert positive values from the texture fetch, which
-       // lie in the range (0-1), to the range (-1,1).
-       //
-       // In other words:   tangent_space_normal = texture_value * 2.0 - 1.0;
-
-       // replace this line with your implementation
        vec3 texture_value = texture(normalTextureSampler, texcoord).rgb;
        vec3 tangent_space_normal = texture_value * 2.0 - 1.0;
        N = normalize(tan2world * tangent_space_normal);
@@ -186,16 +171,7 @@ void main(void)
     vec3 V = normalize(dir2camera);
     vec3 Lo = vec3(0.1 * diffuseColor);   // this is ambient
 
-    /////////////////////////////////////////////////////////////////////////
-    // Phase 2: Evaluate lighting and surface BRDF 
-    /////////////////////////////////////////////////////////////////////////
-
     if (useMirrorBRDF) {
-        //
-        // TODO: CS248 Environment Mapping:
-        // compute perfect mirror reflection direction here.
-        // You'll also need to implement environment map sampling in SampleEnvironmentMap()
-        //
         vec3 R = 2 * dot(V, N) * N - V; // reflected ray
         R = normalize(R);
 
@@ -241,30 +217,6 @@ void main(void)
         vec3 dir_to_surface = position - light_pos;
         float angle = acos(dot(normalize(dir_to_surface), spot_light_directions[i])) * 180.0 / PI;
 
-        // TODO CS248 Part 5.1: Spotlight Attenuation: compute the attenuation of the spotlight due to two factors:
-        // (1) distance from the spot light (D^2 falloff)
-        // (2) attentuation due to being outside the spotlight's cone 
-        //
-        // Here is a description of what to compute:
-        //
-        // 1. Modulate intensity by a factor of 1/D^2, where D is the distance from the
-        //    spotlight to the current surface point.  For robustness, it's common to use 1/(1 + D^2)
-        //    to never multiply by a value greather than 1.
-        //
-        // 2. Modulate the resulting intensity based on whether the surface point is in the cone of
-        //    illumination.  To achieve a smooth falloff, consider the following rules
-        //    
-        //    -- Intensity should be zero if angle between the spotlight direction and the vector from
-        //       the light position to the surface point is greater than (1.0 + SMOOTHING) * cone_angle
-        //
-        //    -- Intensity should not be further attentuated if the angle is less than (1.0 - SMOOTHING) * cone_angle
-        //
-        //    -- For all other angles between these extremes, interpolate linearly from unattenuated
-        //       to zero intensity. 
-        //
-        //    -- The reference solution uses SMOOTHING = 0.1, so 20% of the spotlight region is the smoothly
-        //       facing out area.  Smaller values of SMOOTHING will create hard spotlights.
-
         float SMOOTHING = 0.1;
         float distance = length(dir_to_surface);
         intensity = intensity * (1 / (1 + distance * distance));
@@ -286,6 +238,7 @@ void main(void)
                 // sample shadow map at shadow_uv + offset
                 // and test if the surface is in shadow according to this sample
                 vec2 shadow_uv = shadow_pos[i].xy / shadow_pos[i].w + offset;
+                shadow_uv = clamp(shadow_uv, 0.0, 1.0);
                 float depth = texture(shadowTextureArraySampler, vec3(shadow_uv, i)).x; // why x?
                 float current_depth = shadow_pos[i].z / shadow_pos[i].w;
                 if(current_depth > depth + 0.005) {
@@ -301,22 +254,30 @@ void main(void)
 	    vec3 L = normalize(-spot_light_directions[i]);
 		vec3 brdf_color = Phong_BRDF(L, V, N, diffuseColor, specularColor, specularExponent);
 
+
+        // sample random depth vector here!! To approximate local thickness
+        // translucency and shadows
+        // local curvature and thickness relationships?
+        // use local curvature to approximate thickness
         if(useSubsurfaceScattering) {
             float SSSDistortion = 0.5;
-            float SSSScale = 0.5;
-            float SSSPower = 1.0;
-            float thickness = 1.0;
+            float SSSScale = 2.0;
+            float SSSPower = 2.0;
+            float thickness = 0.5;
             vec3 SSSLightDir = L + N * SSSDistortion;
+            //SSSLightDir = normalize(SSSLightDir);
             float SSSDot = pow(clamp(dot(-SSSLightDir, V), 0.0, 1.0), SSSPower) * SSSScale;
             float SSSAmbient = 0.1;
-            vec3 translucentComponent = (SSSDot + SSSAmbient) * diffuseColor * thickness;
-            brdf_color = brdf_color + translucentComponent;
+            float translucentComponent = (SSSDot + SSSAmbient) * (1 - thickness);
+            float translucentIntensity = translucentComponent;
+            Lo += diffuseColor * translucentIntensity;
         }
 
+        //brdf_color = vec3(1.0);
         //intensity = vec3(1.0);
 	    Lo += intensity * brdf_color;
     }
-
+    //Lo = vec3(1.0, 1.0, 1.0);
     fragColor = vec4(Lo, 1);
 }
 

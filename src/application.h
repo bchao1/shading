@@ -57,7 +57,7 @@ class Application : public Renderer {
     DynamicScene::Scene* scene;
 
     // View Frustrum Variables
-    // On resize, the aspect ratio is changed. On reset_camera, the position and
+    // On resize, the aspect ratio is changed. On reset_, the position and
     // orientation are reset but NOT the aspect ratio.
     Camera camera;
     Camera canonicalCamera;

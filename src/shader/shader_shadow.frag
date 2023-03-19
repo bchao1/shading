@@ -2,6 +2,7 @@
 // Parameters that control fragment shader behavior. Different materials
 // will set these flags to true/false for different looks
 //
+#extension GL_OES_standard_derivatives : enable
 
 uniform bool useTextureMapping;     // true if basic texture mapping (diffuse) should be used
 uniform bool useNormalMapping;      // true if normal mapping should be used
@@ -129,7 +130,8 @@ vec3 BlurPS(vec2 uv, vec3 color, vec2 step_)
     //     step = sssStrength * gaussianWidth * pixelSize * dir
     // The closer the pixel, the stronger the effect needs to be, hence
     // the factor 1.0 / depthM.
-    vec2 finalStep = step_ * 0.002 / depthM;
+    step_ = normalize(step_);
+    vec2 finalStep = step_ * 0.0025 / depthM;
 
     // Accumulate the other samples:
     for (int i = 0; i < 6; i++) {
@@ -151,6 +153,30 @@ vec3 BlurPS(vec2 uv, vec3 color, vec2 step_)
     return colorBlurred;
 }
 
+
+vec3 screen_space_curvature(vec3 n, vec3 vertex)
+{
+    n = normalize(n);
+    //vertex = normalize(vertex);
+    
+
+    vec3 dx = dFdx(n);
+    vec3 dy = dFdy(n);
+    vec3 xneg = n - dx;
+    vec3 xpos = n + dx;
+    vec3 yneg = n - dy;
+    vec3 ypos = n + dy;
+    float depth = 1.0;
+    float curvature = (cross(xneg, xpos).y - cross(yneg, ypos).x) * 4.0 / depth;
+
+    // Compute surface properties
+    vec3 light = vec3(0.0);
+    vec3 ambient = vec3(curvature + 0.5);
+    vec3 diffuse = vec3(0.0);
+    vec3 specular = vec3(0.0);
+    float shininess = 0.0;
+    return vec3(vertex.z + 1);
+}
 
 
 //
@@ -197,9 +223,30 @@ vec3 Phong_BRDF(vec3 L, vec3 V, vec3 N, vec3 diffuse_color, vec3 specular_color,
         specular_component = vec3(0, 0, 0);
     }
 
-    return diffuse_component;// + specular_component;
+    return diffuse_component + specular_component;
 }
 
+vec3 Phong_Specular(vec3 L, vec3 V, vec3 N, vec3 specular_color, float specular_exponent) 
+{
+    vec3 l = normalize(L);
+    vec3 v = normalize(V);
+    vec3 n = normalize(N);
+
+    vec3 r = 2 * dot(l, n) * n - l; // reflected ray
+    r = normalize(r);
+    
+    // be careful to set the diffuse and specular components to zero if the dot product is negative
+    
+    float wrap = 0.0;
+    vec3 specular_component;
+    if (dot(r, v) > 0) {
+        specular_component = specular_color * pow(dot(r, v), specular_exponent);
+    } else {
+        specular_component = vec3(0, 0, 0);
+    }
+
+    return specular_component;
+}
 //
 // SampleEnvironmentMap -- returns incoming radiance from specified direction
 //
@@ -252,6 +299,8 @@ void main(void)
         diffuseColor = vertex_diffuse_color;
     }
 
+    //diffuseColor = vec3(1.0, 1.0, 1.0);
+
     // perform normal map lookup if required
     vec3 N = vec3(0);
     if (useNormalMapping) {
@@ -275,6 +324,7 @@ void main(void)
 
     vec3 V = normalize(dir2camera);
     vec3 Lo = vec3(0.1 * diffuseColor);   // this is ambient
+    vec3 L_specular = vec3(0.0);
 
     /////////////////////////////////////////////////////////////////////////
     // Phase 2: Evaluate lighting and surface BRDF 
@@ -307,6 +357,7 @@ void main(void)
 	    vec3 L = normalize(-directional_light_vectors[i]);
 		vec3 brdf_color = Phong_BRDF(L, V, N, diffuseColor, specularColor, specularExponent);
 	    Lo += light_magnitude * brdf_color;
+        L_specular += light_magnitude * Phong_Specular(L, V, N, specularColor, specularExponent);
     }
 
     // for all point lights
@@ -317,6 +368,7 @@ void main(void)
         vec3 brdf_color = Phong_BRDF(L, V, N, diffuseColor, specularColor, specularExponent);
         float falloff = 1.0 / (0.01 + distance * distance);
         Lo += light_magnitude * falloff * brdf_color;
+        L_specular += light_magnitude * falloff * Phong_Specular(L, V, N, specularColor, specularExponent);
     }
 
     // for all spot lights
@@ -389,10 +441,11 @@ void main(void)
 
 
 	    vec3 L = normalize(-spot_light_directions[i]);
-		  vec3 brdf_color = Phong_BRDF(L, V, N, diffuseColor, specularColor, specularExponent);
+		vec3 brdf_color = Phong_BRDF(L, V, N, diffuseColor, specularColor, specularExponent);
 
         //intensity = vec3(1.0);
 	    Lo += intensity * brdf_color;
+        L_specular += intensity * Phong_Specular(L, V, N, specularColor, specularExponent);
     }
 
 
@@ -400,29 +453,25 @@ void main(void)
     
     vec2 uv = NDC_pos.xy / NDC_pos.w * 0.5 + 0.5;
     float depth = NDC_pos.z / NDC_pos.w * 0.5 + 0.5;
-    // clamp to [0,1] to avoid artifacts when sampling outside of the texture
-    uv = clamp(uv, 0.0, 1.0);
-    vec3 color = texture(diffuseColorTextureSampler, uv).rgb;  
-    for(int i = 0; i < 3; i++) {
-        color = BlurPS(uv, color, vec2(1, 0));
-        color = BlurPS(uv, color, vec2(0.707, 0.707));
-        color = BlurPS(uv, color, vec2(0, 1));
-    }
-
-    //vec3 L = normalize(-spot_light_directions[i]);
-    //vec3 specular_component = Phong_BRDF_specular(L, V, N, specularColor, specularExponent);
-
-    // translucency
-
-
     
-    vec3 scatterDistance = vec3(0.0002, 0.0002, 0.0002);
-    vec3 scatterColor = diffusionSSS(uv, scatterDistance);
+    vec3 color = texture(diffuseColorTextureSampler, uv).rgb;  
+    
+    vec3 blur_color = vec3(color);
+    // test multiple blur passes
+    blur_color = BlurPS(uv, blur_color, vec2(1, 0));
+    blur_color = BlurPS(uv, blur_color, vec2(1, 0.5));
+    blur_color = BlurPS(uv, blur_color, vec2(1, 1));
+    blur_color = BlurPS(uv, blur_color, vec2(0.5, 1));
+    blur_color = BlurPS(uv, blur_color, vec2(0, 1));
+    
+
+    //color = screen_space_curvature(normal, position);
+    vec3 final_color = blur_color + L_specular;
 
     if(useSubsurfaceScattering){
-      fragColor = vec4(color, 1);
-      //fragColor = vec4(Lo, 1);
-      //fragColor = vec4(scatterColor, 1);
+        color = final_color;
+        fragColor = vec4(color, 1);
+        //fragColor = vec4(Lo, 1);
     }
     else {
       fragColor = vec4(Lo, 1);
@@ -437,6 +486,5 @@ void main(void)
 // weird culling artifact when sampling
 // faces orientation not correct after sampling??, but correct if not sampling
 
-
-
-
+// add specular lighting buffer (or just compute in final pass, including shadow!)
+// add real-time sss tune param
