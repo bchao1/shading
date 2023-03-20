@@ -283,7 +283,7 @@ void main(void)
         // use local curvature to approximate thickness
         if(useSubsurfaceScattering) {
             float SSSDistortion = 0.2;
-            float SSSScale = 2;
+            float SSSScale = 4;
             float SSSPower = 2.0;
             float transmittance = exp(-50*thickness);
             vec3 SSSLightDir = L + N * SSSDistortion;
@@ -294,7 +294,6 @@ void main(void)
             float translucentComponent = (SSSDot + SSSAmbient) * transmittance;
             vec3 translucentColor = translucentComponent * diffuseColor;
             Lo += translucentColor;
-            //Lo += transmittance;
         }
 
 	    Lo += intensity * brdf_color;
