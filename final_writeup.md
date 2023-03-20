@@ -165,9 +165,9 @@ The blurring function performs a 1D-Gaussian blur in the specified 2D screen dir
 
 ||Far|Near|
 |---|---|---|
-|Without depth scaling|![](figures/no_depth_scale_far.png)|![](figures/no_depth_scale_close.png)|
-|With depth scaling|![](figures/depth_scale_far.png)|![](figures/depth_scale_close.png)|
-   
+|Without depth scaling|<p><img src="figures/no_depth_scale_far.png" height=200></p>|<p><img src="figures/no_depth_scale_close.png" height=200></p>|
+|With depth scaling|<p><img src="figures/depth_scale_far.png" height=200></p>|<p><img src="figures/depth_scale_close.png" height=200></p>|
+
 Finally, the specular component is also computed in this pass since subsurface scattering does not effect specular lighting.  
 
 
