@@ -55,7 +55,7 @@ in vec2 texcoord;     // surface texcoord (uv)
 in vec3 dir2camera;   // vector from surface point to camera
 in vec3 normal;
 in mat3 tan2world;    // tangent space to world space transform
-in vec4 shadow_pos[3];   // shadow map position (5.2)
+in vec4 shadow_pos[8];   // shadow map position (5.2)
 //in float depth;
 
 out vec4 fragColor;
@@ -169,7 +169,7 @@ void main(void)
     }
 
     vec3 V = normalize(dir2camera);
-    vec3 Lo = vec3(0.1 * diffuseColor);   // this is ambient
+    vec3 Lo = vec3(0.0 * diffuseColor);   // this is ambient
 
     if (useMirrorBRDF) {
         vec3 R = 2 * dot(V, N) * N - V; // reflected ray
@@ -232,23 +232,45 @@ void main(void)
         // TODO CS248 Part 5.2: Shadow Mapping: comute shadowing for spotlight i here 
         float shadow_factor = 0.0;
         float pcf_step_size = 256;
+        float avg_front_depth = 0.0;
         for (int j = -2; j <= 2; j++) {
             for (int k = -2; k <= 2; k++) {
                 vec2 offset = vec2(j,k) / pcf_step_size;
                 // sample shadow map at shadow_uv + offset
                 // and test if the surface is in shadow according to this sample
-                vec2 shadow_uv = shadow_pos[i].xy / shadow_pos[i].w + offset;
+                vec2 shadow_uv = shadow_pos[2*i].xy / shadow_pos[2*i].w + offset;
                 shadow_uv = clamp(shadow_uv, 0.0, 1.0);
-                float depth = texture(shadowTextureArraySampler, vec3(shadow_uv, i)).x; // why x?
-                float current_depth = shadow_pos[i].z / shadow_pos[i].w;
+                float depth = texture(shadowTextureArraySampler, vec3(shadow_uv, 2*i)).x; // why x?
+                float current_depth = shadow_pos[2*i].z / shadow_pos[2*i].w;
                 if(current_depth > depth + 0.005) {
                     shadow_factor += 1.0;
                 }
-                    //intensity = vec3(0, 0, 0);
+                avg_front_depth = avg_front_depth + depth;
             }
         }
+        avg_front_depth /= 25.0;
         shadow_factor /= 25.0;
         intensity *= (1 - shadow_factor);
+
+        float avg_back_depth = 0.0;
+        for (int j = -2; j <= 2; j++) {
+            for (int k = -2; k <= 2; k++) {
+                vec2 offset = vec2(j,k) / pcf_step_size;
+                // sample shadow map at shadow_uv + offset
+                // and test if the surface is in shadow according to this sample
+                vec2 shadow_uv = shadow_pos[2*i+1].xy / shadow_pos[2*i+1].w + offset;
+                shadow_uv = clamp(shadow_uv, 0.0, 1.0);
+                float depth = texture(shadowTextureArraySampler, vec3(shadow_uv, 2*i+1)).x; // why x?
+                float current_depth = shadow_pos[2*i+1].z / shadow_pos[2*i+1].w;
+                if(current_depth < depth - 0.005) {
+                    shadow_factor += 1.0;
+                }
+                avg_back_depth = avg_back_depth + depth;
+            }
+        }
+        avg_back_depth /= 25.0;
+        float total_depth = avg_front_depth + avg_back_depth;
+        float thickness = (2 - total_depth) * 0.5;
 
 
 	    vec3 L = normalize(-spot_light_directions[i]);
@@ -260,21 +282,21 @@ void main(void)
         // local curvature and thickness relationships?
         // use local curvature to approximate thickness
         if(useSubsurfaceScattering) {
-            float SSSDistortion = 0.5;
-            float SSSScale = 2.0;
+            float SSSDistortion = 0.2;
+            float SSSScale = 2;
             float SSSPower = 2.0;
-            float thickness = 0.5;
+            float transmittance = exp(-50*thickness);
             vec3 SSSLightDir = L + N * SSSDistortion;
             //SSSLightDir = normalize(SSSLightDir);
             float SSSDot = pow(clamp(dot(-SSSLightDir, V), 0.0, 1.0), SSSPower) * SSSScale;
+            
             float SSSAmbient = 0.1;
-            float translucentComponent = (SSSDot + SSSAmbient) * (1 - thickness);
-            float translucentIntensity = translucentComponent;
-            Lo += diffuseColor * translucentIntensity;
+            float translucentComponent = (SSSDot + SSSAmbient) * transmittance;
+            vec3 translucentColor = translucentComponent * diffuseColor;
+            Lo += translucentColor;
+            //Lo += transmittance;
         }
 
-        //brdf_color = vec3(1.0);
-        //intensity = vec3(1.0);
 	    Lo += intensity * brdf_color;
     }
     //Lo = vec3(1.0, 1.0, 1.0);

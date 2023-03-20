@@ -58,7 +58,7 @@ in vec2 texcoord;     // surface texcoord (uv)
 in vec3 dir2camera;   // vector from surface point to camera
 in mat3 tan2world;    // tangent space to world space transform
 in vec3 vertex_diffuse_color; // surface color
-in vec4 shadow_pos[3];   // shadow map position (5.2)
+in vec4 shadow_pos[8];   // shadow map position (5.2)
 in vec4 NDC_pos; // NDC position
 in vec3 obj_pos;
 in vec3 obj_normal;
@@ -119,7 +119,7 @@ vec3 BlurPS(vec2 uv, vec3 color, vec2 step_)
 
     // Fetch color and linear depth for current pixel:
     vec3 colorM = color;
-    float depthM = texture(diffuseDepthTextureSampler, uv).r;
+    float depthM = NDC_pos.z;
 
     // Accumulate center sample, multiplying it with its gaussian weight:
     vec3 colorBlurred = colorM;
@@ -131,20 +131,14 @@ vec3 BlurPS(vec2 uv, vec3 color, vec2 step_)
     // The closer the pixel, the stronger the effect needs to be, hence
     // the factor 1.0 / depthM.
     step_ = normalize(step_);
-    vec2 finalStep = step_ * 0.0025 / depthM;
+    vec2 finalStep = step_ * 0.1 / depthM;
+    //finalStep = step_ * 0.0025;
 
     // Accumulate the other samples:
     for (int i = 0; i < 6; i++) {
         // Fetch color and depth for current sample:
         vec2 offset = uv + o[i] * finalStep;
         vec3 sample_color = texture(diffuseColorTextureSampler, offset).rgb;
-        float depth = texture(diffuseDepthTextureSampler, offset).r;
-
-        // If the difference in depth is huge, we lerp color back to "colorM":
-        //float s = min(0.0125 * 1.0 * abs(depthM - depth), 1.0);
-        //sample_color = mix(sample_color, colorM.rgb, s);
-
-        // Accumulate:
         colorBlurred.rgb += w[i] * sample_color;
     }
 
@@ -153,30 +147,6 @@ vec3 BlurPS(vec2 uv, vec3 color, vec2 step_)
     return colorBlurred;
 }
 
-
-vec3 screen_space_curvature(vec3 n, vec3 vertex)
-{
-    n = normalize(n);
-    //vertex = normalize(vertex);
-    
-
-    vec3 dx = dFdx(n);
-    vec3 dy = dFdy(n);
-    vec3 xneg = n - dx;
-    vec3 xpos = n + dx;
-    vec3 yneg = n - dy;
-    vec3 ypos = n + dy;
-    float depth = 1.0;
-    float curvature = (cross(xneg, xpos).y - cross(yneg, ypos).x) * 4.0 / depth;
-
-    // Compute surface properties
-    vec3 light = vec3(0.0);
-    vec3 ambient = vec3(curvature + 0.5);
-    vec3 diffuse = vec3(0.0);
-    vec3 specular = vec3(0.0);
-    float shininess = 0.0;
-    return vec3(vertex.z + 1);
-}
 
 
 //
@@ -427,9 +397,9 @@ void main(void)
                 vec2 offset = vec2(j,k) / pcf_step_size;
                 // sample shadow map at shadow_uv + offset
                 // and test if the surface is in shadow according to this sample
-                vec2 shadow_uv = shadow_pos[i].xy / shadow_pos[i].w + offset;
-                float depth = texture(shadowTextureArraySampler, vec3(shadow_uv, i)).x; // why x?
-                float current_depth = shadow_pos[i].z / shadow_pos[i].w;
+                vec2 shadow_uv = shadow_pos[2*i].xy / shadow_pos[2*i].w + offset;
+                float depth = texture(shadowTextureArraySampler, vec3(shadow_uv, 2*i)).x; // why x?
+                float current_depth = shadow_pos[2*i].z / shadow_pos[2*i].w;
                 if(current_depth > depth + 0.005) {
                     shadow_factor += 1.0;
                 }
@@ -458,11 +428,14 @@ void main(void)
     
     vec3 blur_color = vec3(color);
     // test multiple blur passes
-    blur_color = BlurPS(uv, blur_color, vec2(1, 0));
-    blur_color = BlurPS(uv, blur_color, vec2(1, 0.5));
-    blur_color = BlurPS(uv, blur_color, vec2(1, 1));
-    blur_color = BlurPS(uv, blur_color, vec2(0.5, 1));
-    blur_color = BlurPS(uv, blur_color, vec2(0, 1));
+
+    float steps = 10;
+    float theta = 0;
+    for(int i = 0; i < steps; i++) {
+        vec2 blur_dir = vec2(cos(theta), sin(theta));
+        blur_color = BlurPS(uv, blur_color, blur_dir);
+        theta += PI / steps;
+    }
     
 
     //color = screen_space_curvature(normal, position);

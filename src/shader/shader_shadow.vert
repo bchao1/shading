@@ -25,7 +25,7 @@ out vec2 texcoord;
 out vec3 dir2camera;                // world space vector from surface point to camera
 out vec3 normal;
 out mat3 tan2world;                 // tangent space rotation matrix multiplied by obj2WorldNorm
-out vec4 shadow_pos[3]; // light space position (5.2)
+out vec4 shadow_pos[8]; // light space position (5.2)
 out vec4 NDC_pos;
 out vec3 obj_pos;
 out vec3 obj_normal;
@@ -47,7 +47,7 @@ void main(void)
     // to each shadowed light source.
     
     // tranform the position using each shadow matrix
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < 2*num_spot_lights; i++) {
         shadow_pos[i] = shadow_matrices[i] * vec4(position, 1);
     }
 

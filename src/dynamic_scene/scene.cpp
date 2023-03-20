@@ -140,22 +140,23 @@ Scene::Scene(std::vector<SceneObject*> argObjects,
         shadowTextureSize_ = 1024;
 
         gl_mgr_ = GLResourceManager::instance();
-    
-        for (int i=0; i<getNumShadowedLights(); i++) {
+
+        // one for forward and one for backward pass
+        for (int i=0; i<2*getNumShadowedLights(); i++) {
 
           shadowFrameBufferId_[i] = gl_mgr_->createFrameBuffer();
 	        checkGLError("after creating framebuffer");
 
         }
-
+        cout << "Created " << 2*getNumShadowedLights() << " shadow framebuffers" << endl;
         std::tie(shadowDepthTextureArrayId_, shadowColorTextureArrayId_) = gl_mgr_->createDepthAndColorTextureArrayFromFrameBuffers(
-            shadowFrameBufferId_, getNumShadowedLights(), shadowTextureSize_);
+            shadowFrameBufferId_, 2*getNumShadowedLights(), shadowTextureSize_);
         checkGLError("after binding shadow texture as attachment");
 
         // glDrawBuffer(GL_NONE); // No color buffer is drawn to
         // glReadBuffer(GL_NONE); // No color is read from
 
-        for (int i=0; i<getNumShadowedLights();i++) {
+        for (int i=0; i<2*getNumShadowedLights();i++) {
             // sanity check
             if (!gl_mgr_->checkFrameBuffer(shadowFrameBufferId_[i])) {
                 exit(1);
@@ -304,32 +305,7 @@ void Scene::renderShadowPass(int shadowedLightIndex) {
     float near = 10.f;
     float far = 400.;
 
-    // TODO CS248 Part 5.2 Shadow Mapping
-    // Here we render the shadow map for the given light. You need to accomplish the following:
-    // (1) You need to use gl_mgr_->bindFrameBuffer on the correct framebuffer to render into.
-    // (2) You need to compute the correct worldToLightNDC matrix to pass into drawShadow by
-    //     pretending there is a camera at the light source looking at the scene. Some fake camera
-    //     parameters are provided to you in the code above.
-    // (3) You need to compute a worldToShadowLight matrix that takes the point in world space and
-    //     transforms it into "light space" for the fragment shader to use to sample from the shadow map.
-    //     Note that this is almost worldToLightNDC with an additional transform that converts 
-    //     coordinates in the [-w,w]^3 normalized device coordinate box 
-    //     (the result of the perspective projection transform) to coordinates in a [0,w]^3 volume.
-    //     After homogeneous divide. this means that x,y correspond to valid texture
-    //     coordinates in the [0,1]^2 domain that can be used for a shadow map lookup in the shader.
-    //     You should put it in the right place in worldToShadowLight_ array.
-    // Caveat: GLResourceManager::bindFrameBuffer uses the RAII idiom (https://en.cppreference.com/w/cpp/language/raii)
-    //     Which means you have to give the return value a name since its destructor will release the binding.
-    //     Bad:
-    //       gl_mgr_->bindFrameBuffer(100);  // Return value is destructed immediately!
-    //       drawTriangles();  //  <- Framebuffer 100 is not bound!!!
-    //     Good:
-    //       auto fb_bind = gl_mgr_->bindFrameBuffer(100);
-    //       drawTriangles();  //  <- Framebuffer 100 is bound, since fb_bind is still alive here.
-    // 
-    // Replaces the following lines with correct implementation.
-
-	auto fb_bind = gl_mgr_->bindFrameBuffer(shadowFrameBufferId_[shadowedLightIndex]);
+	auto fb_bind = gl_mgr_->bindFrameBuffer(shadowFrameBufferId_[2*shadowedLightIndex]);
 
 	Matrix4x4 worldToLight = createWorldToCameraMatrix(lightPos, lightPos + lightDir, Vector3D(0, 1, 0));
 	Matrix4x4 proj = createPerspectiveMatrix(fovy, aspect, near, far);
@@ -340,7 +316,7 @@ void Scene::renderShadowPass(int shadowedLightIndex) {
 	normalizeToCube[1] = Vector4D(0, 0.5, 0, 0);
 	normalizeToCube[2] = Vector4D(0, 0, 0.5, 0);
 	normalizeToCube[3] = Vector4D(0.5, 0.5, 0.5, 1);
-	worldToShadowLight_[shadowedLightIndex] = normalizeToCube * worldToLightNDC;
+	worldToShadowLight_[2*shadowedLightIndex] = normalizeToCube * worldToLightNDC;
     // 
 
     glViewport(0, 0, shadowTextureSize_, shadowTextureSize_);
@@ -353,6 +329,34 @@ void Scene::renderShadowPass(int shadowedLightIndex) {
         obj->drawShadow(worldToLightNDC);
 
     checkGLError("end shadow pass");
+
+
+    // render from negative direction
+    Vector3D newLightDir = -lightDir;
+    Vector3D newLightPos = lightPos + lightDir * 1000;
+    auto fb_bind2 = gl_mgr_->bindFrameBuffer(shadowFrameBufferId_[2*shadowedLightIndex+1]);
+
+	worldToLight = createWorldToCameraMatrix(newLightPos, newLightPos + newLightDir, Vector3D(0, 1, 0));
+	proj = createPerspectiveMatrix(fovy, aspect, near, far);
+	worldToLightNDC = proj * worldToLight;
+
+	normalizeToCube[0] = Vector4D(0.5, 0, 0, 0);
+	normalizeToCube[1] = Vector4D(0, 0.5, 0, 0);
+	normalizeToCube[2] = Vector4D(0, 0, 0.5, 0);
+	normalizeToCube[3] = Vector4D(0.5, 0.5, 0.5, 1);
+	worldToShadowLight_[2*shadowedLightIndex+1] = normalizeToCube * worldToLightNDC;
+    // 
+
+    glViewport(0, 0, shadowTextureSize_, shadowTextureSize_);
+
+    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST);
+
+    // Now draw all the objects in the scene
+    for (SceneObject *obj : objects_)
+        obj->drawShadow(worldToLightNDC);
+
+    checkGLError("end 2nd shadow pass");
     
 }
 

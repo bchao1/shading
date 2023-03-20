@@ -502,7 +502,7 @@ void Mesh::internalDraw(int drawEnum, const Matrix4x4& worldToNDC) const {
 
 		checkGLError("before bind shadow matrices");
 
-        for (int j=0; j<scene_->getNumSpotLights(); j++) {
+        for (int j=0; j<2*scene_->getNumSpotLights(); j++) {
             string varname = "shadow_matrices[" + std::to_string(j) + "]";
             const Matrix4x4 shadowMatrix = scene_->getWorldToShadowLight(j);
             diffuseColorShader->setMatrixParameter(varname, shadowMatrix);

@@ -28,12 +28,12 @@
 		},
 		{
 			"id" : "spotlight",
-		    "name" : "main_spotlight",
+			"name" : "main_spotlight",
 			"type" : "spot",
-            "position" : [0, 100, -100],
+			"position" : [0, 100, -100],
 			"direction" : [0, -1, 1],
-            "falloff_deg" : 20.0,
-            "intensity" : [7500, 7500, 7500]
+			"falloff_deg" : 20.0,
+			"intensity" : [7500, 7500, 7500]
 		}
 	],
     
